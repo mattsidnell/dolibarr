@@ -315,6 +315,7 @@ class BookKeeping extends CommonObject
 					$objnum = $this->db->fetch_object($resqlnum);
 					$this->piece_num = $objnum->piece_num;
 				}
+
 				dol_syslog(get_class($this).":: create this->piece_num=".$this->piece_num, LOG_DEBUG);
 				if (empty($this->piece_num)) {
 					$sqlnum = "SELECT MAX(piece_num)+1 as maxpiecenum";
@@ -327,8 +328,8 @@ class BookKeeping extends CommonObject
 						$objnum = $this->db->fetch_object($resqlnum);
 						$this->piece_num = $objnum->maxpiecenum;
 					}
+					dol_syslog(get_class($this).":: create this->piece_num=".$this->piece_num, LOG_DEBUG);
 				}
-				dol_syslog(get_class($this).":: create this->piece_num=".$this->piece_num, LOG_DEBUG);
 				if (empty($this->piece_num)) {
 					$this->piece_num = 1;
 				}
@@ -369,7 +370,7 @@ class BookKeeping extends CommonObject
 				$sql .= ", ".(!empty($this->subledger_account) ? ("'".$this->db->escape($this->subledger_account)."'") : "NULL");
 				$sql .= ", ".(!empty($this->subledger_label) ? ("'".$this->db->escape($this->subledger_label)."'") : "NULL");
 				$sql .= ", '".$this->db->escape($this->numero_compte)."'";
-				$sql .= ", ".(!empty($this->label_operation) ? ("'".$this->db->escape($this->label_operation)."'") : "NULL");
+				$sql .= ", ".(!empty($this->label_compte) ? ("'".$this->db->escape($this->label_compte)."'") : "NULL");
 				$sql .= ", '".$this->db->escape($this->label_operation)."'";
 				$sql .= ", ".$this->debit;
 				$sql .= ", ".$this->credit;
@@ -383,7 +384,6 @@ class BookKeeping extends CommonObject
 				$sql .= ", ".(!isset($this->entity) ? $conf->entity : $this->entity);
 				$sql .= ")";
 
-				dol_syslog(get_class($this).":: create sql=".$sql, LOG_DEBUG);
 				$resql = $this->db->query($sql);
 				if ($resql) {
 					$id = $this->db->last_insert_id(MAIN_DB_PREFIX.$this->table_element);
@@ -1914,25 +1914,24 @@ class BookKeeping extends CommonObject
 
 	/**
 	 * Return id and description of a root accounting account.
-	 * This function takes the parent of parent to get the root account !
+	 * FIXME: This function takes the parent of parent to get the root account !
 	 *
 	 * @param 	string 	$account	Accounting account
-	 * @return 	string 				Root account
+	 * @return 	array 				Array with root account information (max 2 upper level)
 	 */
 	public function getRootAccount($account = null)
 	{
 		global $conf;
 		$pcgver = $conf->global->CHARTOFACCOUNTS;
 
-		$sql  = "SELECT root.rowid, root.account_number, root.label as label";
+		$sql  = "SELECT root.rowid, root.account_number, root.label as label,";
+		$sql .= " parent.rowid as parent_rowid, parent.account_number as parent_account_number, parent.label as parent_label";
 		$sql .= " FROM ".MAIN_DB_PREFIX."accounting_account as aa";
 		$sql .= " INNER JOIN ".MAIN_DB_PREFIX."accounting_system as asy ON aa.fk_pcg_version = asy.pcg_version";
 		$sql .= " AND asy.rowid = ".((int) $pcgver);
-		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."accounting_account as parent ON aa.account_parent = parent.rowid";
-		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."accounting_account as root ON parent.account_parent = root.rowid";
+		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."accounting_account as parent ON aa.account_parent = parent.rowid AND parent.active = 1";
+		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."accounting_account as root ON parent.account_parent = root.rowid AND root.active = 1";
 		$sql .= " WHERE aa.account_number = '".$this->db->escape($account)."'";
-		$sql .= " AND parent.active = 1";
-		$sql .= " AND root.active = 1";
 		$sql .= " AND aa.entity IN (".getEntity('accountancy').")";
 
 		dol_syslog(get_class($this)."::select_account sql=".$sql, LOG_DEBUG);
@@ -1943,7 +1942,8 @@ class BookKeeping extends CommonObject
 				$obj = $this->db->fetch_object($resql);
 			}
 
-			return array('id'=>$obj->rowid, 'account_number'=>$obj->account_number, 'label'=>$obj->label);
+			$result = array('id'=>$obj->rowid, 'account_number'=>$obj->account_number, 'label'=>$obj->label);
+			return $result;
 		} else {
 			$this->error = "Error ".$this->db->lasterror();
 			dol_syslog(__METHOD__." ".$this->error, LOG_ERR);

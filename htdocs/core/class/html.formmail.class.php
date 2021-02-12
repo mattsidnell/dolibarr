@@ -455,10 +455,13 @@ class FormMail extends Form
 			// Zone to select email template
 			if (count($modelmail_array) > 0)
 			{
+				$model_mail_selected_id = GETPOSTISSET('modelmailselected') ? GETPOST('modelmailselected', 'int') : $arraydefaultmessage->id;
+
 				// If list of template is filled
 				$out .= '<div class="center" style="padding: 0px 0 12px 0">'."\n";
+
 				$out .= '<span class="opacitymedium">'.$langs->trans('SelectMailModel').':</span> ';
-				$out .= $this->selectarray('modelmailselected', $modelmail_array, 0, 1, 0, 0, '', 0, 0, 0, '', 'minwidth100', 1, '', 0, 1);
+				$out .= $this->selectarray('modelmailselected', $modelmail_array, $model_mail_selected_id, 1, 0, 0, '', 0, 0, 0, '', 'minwidth100', 1, '', 0, 1);
 				if ($user->admin) $out .= info_admin($langs->trans("YouCanChangeValuesForThisListFrom", $langs->transnoentitiesnoconv('Setup').' - '.$langs->transnoentitiesnoconv('EMails')), 1);
 				$out .= ' &nbsp; ';
 				$out .= '<input class="button" type="submit" value="'.$langs->trans('Apply').'" name="modelselected" id="modelselected">';
@@ -859,9 +862,16 @@ class FormMail extends Form
 					{
 						foreach ($listofpaths as $key => $val)
 						{
+							$relativepathtofile = substr($val, (strlen(DOL_DATA_ROOT) - strlen($val)));
+							if ($conf->entity > 1) {
+								$relativepathtofile = str_replace($conf->entity.'/', '', $relativepathtofile);
+							}
+							// Try to extract data from full path
+							$formfile_params = array();
+							preg_match('#^(/)(\w+)(/)(.+)$#', $relativepathtofile, $formfile_params);
+
 							$out .= '<div id="attachfile_'.$key.'">';
 							// Preview of attachment
-							preg_match('#^(/)(\w+)(/)(.+)$#', substr($val, (strlen(DOL_DATA_ROOT) - strlen($val))), $formfile_params);
 							$out .= img_mime($listofnames[$key]).' '.$listofnames[$key];
 							$out .= $formfile->showPreview(array(), $formfile_params[2], $formfile_params[4]);
 							if (!$this->withfilereadonly)
